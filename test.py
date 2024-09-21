@@ -43,8 +43,9 @@ print(f'\n\nSignature: {parts[2]}')
 try:
     public_key.verify(
         signature,
-        f'{parts[0]}.{parts[1]}',
-        padding.PKCS1v15()
+        f'{parts[0]}.{parts[1]}'.encode(),
+        padding.PKCS1v15(),
+        algorithm=hashes.SHA256()
     )
     print(f'Signature verified successfully')
 except:

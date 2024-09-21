@@ -6,12 +6,15 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
+# Constants for RSA generation
 key_exp = 65537
 key_size = 2048
 
+# Other constants
 expirationDays = 7
 currentKeyId = 0
 
+# global key data store
 public_keys = { }
 private_keys = { }
 
@@ -19,6 +22,7 @@ private_keys = { }
 def ticks(dt):
     return (dt - datetime(1, 1, 1)).total_seconds() * 10000000
 
+# Helper function to easily generate an RSA pair
 def generate_rsa_pair() -> rsa.RSAPrivateKey:
     return rsa.generate_private_key(
         public_exponent=key_exp,
@@ -26,11 +30,13 @@ def generate_rsa_pair() -> rsa.RSAPrivateKey:
         backend=default_backend()
     )
 
+# Gets new expiration date for key
 def get_expiration_date():
     current_date = datetime.now()
     future_date = current_date + timedelta(days=expirationDays)
     return future_date
 
+# Generate JWT Header
 def getHeader(kid: int):
     return {
         "alg": "RSA256",
@@ -38,9 +44,11 @@ def getHeader(kid: int):
         "kid": kid
     }
 
+# Encode a JSON object in base64 and then decode it for plain text transport over HTTP
 def encode_json(data: object):
     return base64.urlsafe_b64encode(str.encode(json.dumps(data), 'utf-8')).decode('utf-8')
 
+# Generate a new JWT with some dummy data
 def get_JWT(add_expiry: bool = False):
     check_keys()
     public_key = list(public_keys.items())[0][1]
@@ -62,6 +70,7 @@ def get_JWT(add_expiry: bool = False):
     ).decode('utf-8')
     return f'{encoded_header}.{encoded_payload}.{signature}'
 
+# Creates a new public and private RSA key
 def create_new_key():
     global currentKeyId
     global public_keys
@@ -80,9 +89,11 @@ def create_new_key():
     }
     private_keys[f'{currentKeyId}'] = key
 
+# When run the first time, create a new key
 def init():
     create_new_key()
 
+# Determines if any of the keys are past expiration and generates a new key if it is
 def check_keys():
     now = ticks(datetime.now())
     for id in public_keys.keys():
@@ -94,6 +105,7 @@ def check_keys():
 
 class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self):
+        # JWKS standard endpoint
         if self.path == '/jwks.json':
             check_keys()
             self.send_response(200)
@@ -103,6 +115,7 @@ class RequestHandler(BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(key_list).encode('utf-8'))
 
     def do_POST(self):
+        # JWT endpoint
         if self.path == '/auth':
             token = get_JWT()
             self.send_response(200)
